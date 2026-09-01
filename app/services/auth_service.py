@@ -2,19 +2,20 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.user import User, BusinessProfile, CustomerProfile, RefreshToken, UserRole
-from app.schemas.auth import CustomerRegisterRequest, BusinessRegisterRequest, LoginRequest
-from app.utils.security import (
+from app.models.user import User, RefreshToken
+from app.schemas.auth import UnifiedRegisterRequest, LoginRequest
+from app.schemas.user import UpdateAccountRequest, ChangePasswordRequest
+from app.core.security import (
     hash_password,
     verify_password,
     hash_token,
     generate_random_token,
     create_access_token
 )
-from app.config import settings
+from app.core.config import settings
 
 
-def _issue_refresh_token(db: Session, user_id: str, family_id: str | None = None) -> str:
+def issue_refresh_token(db: Session, user_id: str, family_id: str | None = None) -> str:
     raw_token = generate_random_token()
     token_hashed = hash_token(raw_token)
     family = family_id or str(uuid.uuid4())
@@ -31,72 +32,44 @@ def _issue_refresh_token(db: Session, user_id: str, family_id: str | None = None
     return raw_token
 
 
-def register_customer(db: Session, data: CustomerRegisterRequest):
+def register_user(db: Session, data: UnifiedRegisterRequest):
     if db.query(User).filter(User.email == data.email).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered"
+        )
 
     user = User(
+        name=data.name,
         email=data.email,
-        password_hash=hash_password(data.password),
-        role=UserRole.CUSTOMER
-    )
-    db.add(user)
-    db.flush()
-
-    profile = CustomerProfile(
-        user_id=user.id,
-        first_name=data.first_name,
-        last_name=data.last_name,
         phone=data.phone,
-        shipping_address=data.shipping_address
-    )
-    db.add(profile)
-    db.commit()
-    db.refresh(user)
-
-    access_token = create_access_token(user.id, user.email, user.role.value)
-    refresh_token = _issue_refresh_token(db, user.id)
-    return {"user": user, "access_token": access_token, "refresh_token": refresh_token}
-
-
-def register_business(db: Session, data: BusinessRegisterRequest):
-    if db.query(User).filter(User.email == data.email).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
-    user = User(
-        email=data.email,
         password_hash=hash_password(data.password),
-        role=UserRole.BUSINESS
+        role=data.role
     )
     db.add(user)
-    db.flush()
-
-    profile = BusinessProfile(
-        user_id=user.id,
-        company_name=data.company_name,
-        tax_identifier=data.tax_identifier,
-        contact_phone=data.contact_phone,
-        address=data.address
-    )
-    db.add(profile)
     db.commit()
     db.refresh(user)
 
     access_token = create_access_token(user.id, user.email, user.role.value)
-    refresh_token = _issue_refresh_token(db, user.id)
-    return {"user": user, "access_token": access_token, "refresh_token": refresh_token}
+    refresh_token = issue_refresh_token(db, user.id)
+
+    return {
+        "user": user,
+        "access_token": access_token,
+        "refresh_token": refresh_token
+    }
 
 
 def login_user(db: Session, data: LoginRequest):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-    
+
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
 
     access_token = create_access_token(user.id, user.email, user.role.value)
-    refresh_token = _issue_refresh_token(db, user.id)
+    refresh_token = issue_refresh_token(db, user.id)
     return {"user": user, "access_token": access_token, "refresh_token": refresh_token}
 
 
@@ -119,13 +92,12 @@ def rotate_refresh_token(db: Session, raw_token: str):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     record.is_revoked = True
-
     user = db.query(User).filter(User.id == record.user_id).first()
     if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or removed")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive or not found")
 
     new_access_token = create_access_token(user.id, user.email, user.role.value)
-    new_refresh_token = _issue_refresh_token(db, user.id, family_id=record.family_id)
+    new_refresh_token = issue_refresh_token(db, user.id, family_id=record.family_id)
     return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 
 
@@ -135,3 +107,27 @@ def revoke_refresh_token(db: Session, raw_token: str):
     if record:
         record.is_revoked = True
         db.commit()
+
+
+def update_account(db: Session, current_user: User, data: UpdateAccountRequest):
+    if data.email and data.email != current_user.email:
+        if db.query(User).filter(User.email == data.email).first():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already taken")
+        current_user.email = data.email
+
+    if data.name is not None:
+        current_user.name = data.name
+    if data.phone is not None:
+        current_user.phone = data.phone
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+def change_password(db: Session, current_user: User, data: ChangePasswordRequest):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password")
+
+    current_user.password_hash = hash_password(data.new_password)
+    db.commit()

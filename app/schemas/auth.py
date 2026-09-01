@@ -2,22 +2,12 @@ from pydantic import BaseModel, EmailStr
 from app.models.user import UserRole
 
 
-class CustomerRegisterRequest(BaseModel):
+class UnifiedRegisterRequest(BaseModel):
+    name: str  # Customer Full Name or Business/Company Name
     email: EmailStr
     password: str
-    first_name: str
-    last_name: str
     phone: str | None = None
-    shipping_address: str | None = None
-
-
-class BusinessRegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    company_name: str
-    tax_identifier: str | None = None
-    contact_phone: str | None = None
-    address: str | None = None
+    role: UserRole  # Accepts "CUSTOMER" or "BUSINESS"
 
 
 class LoginRequest(BaseModel):
@@ -35,8 +25,11 @@ class LogoutRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
+    name: str
     email: EmailStr
+    phone: str | None
     role: UserRole
+    is_active: bool
 
     class Config:
         from_attributes = True

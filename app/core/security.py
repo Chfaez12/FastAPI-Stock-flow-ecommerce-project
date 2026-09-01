@@ -29,7 +29,6 @@ def generate_random_token() -> str:
 
 def create_access_token(user_id: str, email: str, role: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
     payload = {
         "sub": str(user_id),
         "email": email,
@@ -37,7 +36,7 @@ def create_access_token(user_id: str, email: str, role: str) -> str:
         "role": "authenticated",
         "app_metadata": {
             "provider": "email",
-            "role": role  
+            "role": role
         },
         "user_metadata": {
             "role": role

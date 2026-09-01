@@ -3,8 +3,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
-from app.config import settings
+from app.db.session import SessionLocal
+from app.core.config import settings
 from app.models.user import User, UserRole
 
 bearer_scheme = HTTPBearer()
@@ -28,16 +28,15 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
     try:
         payload = jwt.decode(
             token,
             settings.SUPABASE_JWT_SECRET,
             algorithms=[settings.JWT_ALGORITHM],
-            options={"verify_aud": False}  # Allows both direct tokens and client-side Supabase tokens
+            options={"verify_aud": False}
         )
         user_id: str = payload.get("sub")
-        if not user_id:
+        if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
@@ -53,7 +52,7 @@ def require_roles(*allowed_roles: UserRole):
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot perform the requested action with the current role",
+                detail=f"Resource forbidden. Required roles: {[r.value for r in allowed_roles]}"
             )
         return current_user
     return role_checker
