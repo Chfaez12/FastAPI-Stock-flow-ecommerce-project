@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-from app.dependencies.auth import get_db, get_current_user, require_roles
+from app.dependencies.auth import get_db, require_roles
 from app.models.user import User, UserRole
-from app.schemas.entities import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
 from app.services import order_service
 
 router = APIRouter(prefix="/orders", tags=["Orders"])

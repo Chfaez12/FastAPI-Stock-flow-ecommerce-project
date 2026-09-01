@@ -1,10 +1,8 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
 import bcrypt
-from jose import jwt
-from app.core.config import settings
-
+from fastapi import HTTPException,status
+from app.core.supabase_client import supabase
 
 def hash_password(password: str) -> str:
     pwd_bytes = password.encode("utf-8")
@@ -26,22 +24,31 @@ def hash_token(raw_token: str) -> str:
 def generate_random_token() -> str:
     return secrets.token_urlsafe(64)
 
+def verify_supabase_token(token: str) -> dict:
 
-def create_access_token(user_id: str, email: str, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": str(user_id),
-        "email": email,
-        "aud": "authenticated",
-        "role": "authenticated",
-        "app_metadata": {
-            "provider": "email",
-            "role": role
-        },
-        "user_metadata": {
-            "role": role
-        },
-        "exp": expire,
-        "iat": datetime.now(timezone.utc)
-    }
-    return jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    try:
+        response = supabase.auth.get_user(token)
+
+        if hasattr(response, 'user'):
+            user = response.user
+        else:
+            user = response
+
+        if not user or not hasattr(user, 'id'):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid or expired token")
+
+        return {
+            "sub": str(user.id),
+            "email": getattr(user, 'email', None),
+            "user_metadata": getattr(user, 'user_metadata', {}) or {}
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+       
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )

@@ -1,7 +1,7 @@
-from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.entities import Supplier
-from app.schemas.entities import SupplierCreate, SupplierUpdate
+from sqlalchemy.orm import Session
+from app.models.supplier import Supplier
+from app.schemas.supplier import SupplierCreate, SupplierUpdate
 
 
 def create_supplier(db: Session, data: SupplierCreate) -> Supplier:

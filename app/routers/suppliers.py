@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.dependencies.auth import get_db, require_roles
 from app.models.user import UserRole
-from app.schemas.entities import SupplierCreate, SupplierUpdate, SupplierResponse
+from app.schemas.supplier import SupplierCreate, SupplierResponse, SupplierUpdate
 from app.services import supplier_service
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])

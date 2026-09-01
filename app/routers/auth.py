@@ -18,7 +18,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     "/register",
     response_model=AuthResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new user (Customer or Business)",
+    summary="Register a new user via Supabase Auth",
 )
 def register(data: UnifiedRegisterRequest, db: Session = Depends(get_db)):
     return auth_service.register_user(db, data)
@@ -27,7 +27,7 @@ def register(data: UnifiedRegisterRequest, db: Session = Depends(get_db)):
 @router.post(
     "/login",
     response_model=AuthResponse,
-    summary="Authenticate user and return tokens",
+    summary="Authenticate user via Supabase Auth",
 )
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     return auth_service.login_user(db, data)
@@ -36,7 +36,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 @router.post(
     "/refresh",
     response_model=TokenRefreshResponse,
-    summary="Rotate refresh token and get a new access token",
+    summary="Rotate Supabase refresh token",
 )
 def refresh(data: TokenRefreshRequest, db: Session = Depends(get_db)):
     return auth_service.rotate_refresh_token(db, data.refresh_token)
@@ -45,8 +45,8 @@ def refresh(data: TokenRefreshRequest, db: Session = Depends(get_db)):
 @router.post(
     "/logout",
     status_code=status.HTTP_200_OK,
-    summary="Revoke refresh token session",
+    summary="Revoke session in Supabase Auth",
 )
-def logout(data: LogoutRequest, db: Session = Depends(get_db)):
-    auth_service.revoke_refresh_token(db, data.refresh_token)
+def logout(data: LogoutRequest):
+    auth_service.revoke_token()
     return {"message": "Logged out successfully"}

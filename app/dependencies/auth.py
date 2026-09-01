@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.core.config import settings
 from app.models.user import User, UserRole
+from app.core.security import verify_supabase_token
 
 bearer_scheme = HTTPBearer()
 
@@ -25,16 +26,11 @@ def get_current_user(
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Could not validate Supabase credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(
-            token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-            options={"verify_aud": False}
-        )
+        payload = verify_supabase_token(token)
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception

@@ -3,11 +3,11 @@ from app.models.user import UserRole
 
 
 class UnifiedRegisterRequest(BaseModel):
-    name: str  # Customer Full Name or Business/Company Name
+    name: str 
     email: EmailStr
     password: str
     phone: str | None = None
-    role: UserRole  # Accepts "CUSTOMER" or "BUSINESS"
+    role: UserRole  
 
 
 class LoginRequest(BaseModel):
