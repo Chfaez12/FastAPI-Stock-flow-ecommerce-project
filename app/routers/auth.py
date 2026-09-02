@@ -4,7 +4,6 @@ from app.dependencies.auth import get_db
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
-    LogoutRequest,
     TokenRefreshRequest,
     TokenRefreshResponse,
     UnifiedRegisterRequest,
@@ -47,6 +46,6 @@ def refresh(data: TokenRefreshRequest, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Revoke session in Supabase Auth",
 )
-def logout(data: LogoutRequest):
+def logout():
     auth_service.revoke_token()
     return {"message": "Logged out successfully"}

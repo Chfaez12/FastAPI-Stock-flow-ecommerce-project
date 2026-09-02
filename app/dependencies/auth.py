@@ -1,15 +1,13 @@
 from collections.abc import Generator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from jose import JWTError
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
-from app.core.config import settings
 from app.models.user import User, UserRole
 from app.core.security import verify_supabase_token
 
 bearer_scheme = HTTPBearer()
-
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()

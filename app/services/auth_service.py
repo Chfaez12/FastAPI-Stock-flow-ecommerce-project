@@ -7,7 +7,6 @@ from app.schemas.auth import UnifiedRegisterRequest, LoginRequest, TokenRefreshR
 
 def register_user(db: Session, data: UnifiedRegisterRequest):
     try:
-        # 1. Register user in Supabase Auth with metadata
         res = supabase.auth.sign_up({
             "email": data.email,
             "password": data.password,
@@ -27,7 +26,7 @@ def register_user(db: Session, data: UnifiedRegisterRequest):
 
     user_id = str(res.user.id)
 
-    # 2. Synchronize Supabase user ID with your local PostgreSQL table
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         user = User(
@@ -66,9 +65,6 @@ def login_user(db: Session, data: LoginRequest):
     if not res.user or not res.session:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    access_token = res.session.access_token
-    refresh_token = res.session.refresh_token
-
     user_id = str(res.user.id)
 
     
@@ -100,7 +96,7 @@ def login_user(db: Session, data: LoginRequest):
 
 def rotate_refresh_token(db: Session, refresh_token: str):
     try:
-        # Rotate session in Supabase Auth
+        
         res = supabase.auth.refresh_session(refresh_token)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
