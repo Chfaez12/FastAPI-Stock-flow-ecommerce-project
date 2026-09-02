@@ -1,6 +1,6 @@
 from decimal import Decimal
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.exceptions import ResourceNotFoundException
 from app.models.inventory import Inventory
 from app.models.product import Product
 from app.models.purchase_order import (
@@ -14,7 +14,7 @@ from app.schemas.purchase_order import PurchaseOrderCreate
 
 def create_purchase_order(db: Session, data: PurchaseOrderCreate) -> PurchaseOrder:
     if not db.query(Supplier).filter(Supplier.id == data.supplier_id).first():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
+        raise ResourceNotFoundException(resource="Supplier", identifier=data.supplier_id)
 
     po = PurchaseOrder(
         supplier_id=data.supplier_id,
@@ -28,13 +28,7 @@ def create_purchase_order(db: Session, data: PurchaseOrderCreate) -> PurchaseOrd
     for item_data in data.items:
         if not db.query(Product).filter(Product.id == item_data.product_id).first():
             db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product {item_data.product_id} not found"
-            )
-
-        item_cost = item_data.unit_cost * item_data.quantity
-        total_amount += item_cost
+            raise ResourceNotFoundException(resource="Product", identifier=item_data.product_id)
 
         po_item = PurchaseOrderItem(
             purchase_order_id=po.id,
@@ -43,6 +37,7 @@ def create_purchase_order(db: Session, data: PurchaseOrderCreate) -> PurchaseOrd
             unit_cost=item_data.unit_cost
         )
         db.add(po_item)
+        total_amount += item_data.unit_cost * item_data.quantity
 
     po.total_amount = total_amount
     db.commit()
@@ -57,7 +52,7 @@ def list_purchase_orders(db: Session) -> list[PurchaseOrder]:
 def update_purchase_order_status(db: Session, po_id: str, new_status: PurchaseOrderStatus) -> PurchaseOrder:
     po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
     if not po:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase order not found")
+        raise ResourceNotFoundException(resource="Purchase Order", identifier=po_id)
 
     if new_status == PurchaseOrderStatus.RECEIVED and po.status != PurchaseOrderStatus.RECEIVED:
         for item in po.items:

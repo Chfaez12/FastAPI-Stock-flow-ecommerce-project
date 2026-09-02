@@ -1,5 +1,5 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.exceptions import ResourceAlreadyExistsException, ResourceNotFoundException
 from app.models.category import Category
 from app.models.inventory import Inventory
 from app.models.product import Product, ProductStatus
@@ -8,9 +8,10 @@ from app.schemas.product import ProductCreate, ProductUpdate
 
 def create_product(db: Session, data: ProductCreate) -> Product:
     if db.query(Product).filter(Product.sku == data.sku).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU already exists")
+        raise ResourceAlreadyExistsException(resource="Product", field="sku", value=data.sku)
+
     if data.category_id and not db.query(Category).filter(Category.id == data.category_id).first():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+        raise ResourceNotFoundException(resource="Category", identifier=data.category_id)
 
     product = Product(
         sku=data.sku,
@@ -41,7 +42,7 @@ def list_products(db: Session, is_business: bool, category_id: str | None = None
     result = []
     for p in products:
         inv = db.query(Inventory).filter(Inventory.product_id == p.id).first()
-        res_dict = {
+        result.append({
             "id": p.id,
             "sku": p.sku,
             "name": p.name,
@@ -52,22 +53,22 @@ def list_products(db: Session, is_business: bool, category_id: str | None = None
             "created_at": p.created_at,
             "updated_at": p.updated_at,
             "available_stock": inv.quantity if inv else 0
-        }
-        result.append(res_dict)
+        })
     return result
 
 
 def update_product(db: Session, product_id: str, data: ProductUpdate) -> Product:
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise ResourceNotFoundException(resource="Product", identifier=product_id)
 
     if data.sku and data.sku != product.sku:
         if db.query(Product).filter(Product.sku == data.sku).first():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU already exists")
+            raise ResourceAlreadyExistsException(resource="Product", field="sku", value=data.sku)
         product.sku = data.sku
+
     if data.category_id and not db.query(Category).filter(Category.id == data.category_id).first():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+        raise ResourceNotFoundException(resource="Category", identifier=data.category_id)
 
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(product, key, value)
@@ -80,6 +81,6 @@ def update_product(db: Session, product_id: str, data: ProductUpdate) -> Product
 def delete_product(db: Session, product_id: str):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise ResourceNotFoundException(resource="Product", identifier=product_id)
     db.delete(product)
     db.commit()

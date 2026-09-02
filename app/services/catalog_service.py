@@ -1,11 +1,15 @@
 from decimal import Decimal
-from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.entities import Category, Product, Inventory, ProductStatus
-from app.schemas.entities import CategoryCreate, CategoryUpdate, ProductCreate, ProductUpdate, InventoryAdjustmentRequest
+from sqlalchemy.orm import Session
 
+from app.models.category import Category
+from app.models.inventory import Inventory
+from app.models.product import Product, ProductStatus
 
-# Category Operations
+from app.schemas.category import CategoryCreate, CategoryUpdate
+from app.schemas.inventory import InventoryAdjustmentRequest
+from app.schemas.product import ProductCreate, ProductUpdate
+
 def create_category(db: Session, data: CategoryCreate) -> Category:
     if db.query(Category).filter(Category.name == data.name).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category name already exists")
@@ -43,7 +47,6 @@ def delete_category(db: Session, category_id: str):
     db.commit()
 
 
-# Product Operations
 def create_product(db: Session, data: ProductCreate) -> Product:
     if db.query(Product).filter(Product.sku == data.sku).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="SKU already exists")
@@ -123,7 +126,6 @@ def delete_product(db: Session, product_id: str):
     db.commit()
 
 
-# Inventory Operations
 def adjust_inventory(db: Session, product_id: str, data: InventoryAdjustmentRequest) -> Inventory:
     inv = db.query(Inventory).filter(Inventory.product_id == product_id).with_for_update().first()
     if not inv:

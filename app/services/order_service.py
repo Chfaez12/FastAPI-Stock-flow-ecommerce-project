@@ -1,6 +1,6 @@
 from decimal import Decimal
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.exceptions import InsufficientStockException, ResourceNotFoundException, StockFlowException
 from app.models.inventory import Inventory
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product, ProductStatus
@@ -19,24 +19,23 @@ def place_customer_order(db: Session, customer_id: str, data: OrderCreate) -> Or
         product = db.query(Product).filter(Product.id == item_data.product_id).first()
 
         if not product or product.status != ProductStatus.ACTIVE:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Product {item_data.product_id} is unavailable"
+            raise StockFlowException(
+                message=f"Product '{item_data.product_id}' is unavailable or inactive.",
+                status_code=400
             )
 
-        if not inv or inv.quantity < item_data.quantity:
-            db.rollback()
-            available = inv.quantity if inv else 0
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for '{product.name}'. Available: {available}, Requested: {item_data.quantity}"
+        prod_name = product.name
+        avail_qty = inv.quantity if inv else 0
+
+        if avail_qty < item_data.quantity:
+            raise InsufficientStockException(
+                product_name=prod_name,
+                available=avail_qty,
+                requested=item_data.quantity
             )
 
         inv.quantity -= item_data.quantity
-
-        item_total = product.price * item_data.quantity
-        total_amount += item_total
+        total_amount += product.price * item_data.quantity
 
         order_item = OrderItem(
             order_id=order.id,
@@ -63,7 +62,7 @@ def get_all_orders_for_business(db: Session) -> list[Order]:
 def update_order_status(db: Session, order_id: str, new_status: OrderStatus) -> Order:
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        raise ResourceNotFoundException(resource="Order", identifier=order_id)
 
     if new_status == OrderStatus.CANCELLED and order.status != OrderStatus.CANCELLED:
         for item in order.items:

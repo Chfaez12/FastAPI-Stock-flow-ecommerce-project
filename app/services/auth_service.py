@@ -1,8 +1,12 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.supabase_client import supabase
+from app.exceptions import (
+    AuthenticationFailedException,
+    PermissionDeniedException,
+    StockFlowException,
+)
 from app.models.user import User, UserRole
-from app.schemas.auth import UnifiedRegisterRequest, LoginRequest, TokenRefreshRequest
+from app.schemas.auth import UnifiedRegisterRequest, LoginRequest
 
 
 def register_user(db: Session, data: UnifiedRegisterRequest):
@@ -14,18 +18,17 @@ def register_user(db: Session, data: UnifiedRegisterRequest):
                 "data": {
                     "name": data.name,
                     "phone": data.phone,
-                    "role": data.role.value
+                    "role": data.role.value,
                 }
-            }
+            },
         })
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise StockFlowException(message=str(e), status_code=400)
 
     if not res.user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration failed in Supabase Auth")
+        raise StockFlowException(message="Registration failed in Supabase Auth", status_code=400)
 
     user_id = str(res.user.id)
-
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -35,7 +38,7 @@ def register_user(db: Session, data: UnifiedRegisterRequest):
             email=data.email,
             phone=data.phone,
             password_hash="SUPABASE_AUTH_MANAGED",
-            role=data.role
+            role=data.role,
         )
         db.add(user)
         db.commit()
@@ -48,65 +51,63 @@ def register_user(db: Session, data: UnifiedRegisterRequest):
     return {
         "user": user,
         "access_token": access_token,
-        "refresh_token": refresh_token
+        "refresh_token": refresh_token,
     }
 
 
 def login_user(db: Session, data: LoginRequest):
     try:
-    
         res = supabase.auth.sign_in_with_password({
             "email": data.email,
-            "password": data.password
+            "password": data.password,
         })
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    except Exception:
+        raise AuthenticationFailedException()
 
     if not res.user or not res.session:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise AuthenticationFailedException()
 
     user_id = str(res.user.id)
 
-    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        user_role = res.user.user_metadata.get("role", UserRole.CUSTOMER.value)
-        user_name = res.user.user_metadata.get("name", data.email.split("@")[0])
+        raw_metadata = res.user.user_metadata or {}
+        user_role = raw_metadata.get("role", UserRole.CUSTOMER.value)
+        user_name = raw_metadata.get("name", data.email.split("@")[0])
         user = User(
             id=user_id,
             name=user_name,
             email=data.email,
-            phone=res.user.user_metadata.get("phone"),
+            phone=raw_metadata.get("phone"),
             password_hash="SUPABASE_AUTH_MANAGED",
-            role=UserRole(user_role)
+            role=UserRole(user_role),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated")
+        raise PermissionDeniedException()
 
     return {
         "user": user,
         "access_token": res.session.access_token,
-        "refresh_token": res.session.refresh_token
+        "refresh_token": res.session.refresh_token,
     }
 
 
 def rotate_refresh_token(db: Session, refresh_token: str):
     try:
-        
         res = supabase.auth.refresh_session(refresh_token)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
+    except Exception:
+        raise AuthenticationFailedException()
 
     if not res.session:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to refresh session")
+        raise AuthenticationFailedException()
 
     return {
         "access_token": res.session.access_token,
-        "refresh_token": res.session.refresh_token
+        "refresh_token": res.session.refresh_token,
     }
 
 

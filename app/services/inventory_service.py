@@ -1,5 +1,5 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.exceptions import InsufficientStockException, ResourceNotFoundException
 from app.models.inventory import Inventory
 from app.schemas.inventory import InventoryAdjustmentRequest
 
@@ -7,13 +7,14 @@ from app.schemas.inventory import InventoryAdjustmentRequest
 def adjust_inventory(db: Session, product_id: str, data: InventoryAdjustmentRequest) -> Inventory:
     inv = db.query(Inventory).filter(Inventory.product_id == product_id).with_for_update().first()
     if not inv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory record not found")
+        raise ResourceNotFoundException(resource="Inventory record", identifier=product_id)
 
     new_quantity = inv.quantity + data.quantity_delta
     if new_quantity < 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient inventory. Current stock: {inv.quantity}"
+        raise InsufficientStockException(
+            product_name=inv.product.name if inv.product else product_id,
+            available=inv.quantity,
+            requested=abs(data.quantity_delta)
         )
 
     inv.quantity = new_quantity

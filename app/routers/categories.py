@@ -43,4 +43,4 @@ def delete_category(
     db: Session = Depends(get_db),
     _user=Depends(require_roles(UserRole.BUSINESS))
 ):
-    category_service.delete_category(db, category_id)
+    return category_service.delete_category(db, category_id)
