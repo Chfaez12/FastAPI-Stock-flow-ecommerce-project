@@ -20,14 +20,14 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
-    """Ensure all tables exist in Supabase before test execution."""
+    
     Base.metadata.create_all(bind=engine)
     yield
 
 
 @pytest.fixture(scope="function")
 def db_session() -> Generator:
-    """Run each test inside an isolated database transaction that rolls back at the end."""
+    
     connection = engine.connect()
     transaction = connection.begin()
     db = TestingSessionLocal(bind=connection)

@@ -19,6 +19,14 @@ def list_purchase_orders(
 ):
     return purchase_order_service.list_purchase_orders(db)
 
+@router.get("/{po_id}", response_model=PurchaseOrderResponse, summary="[Business] Get single purchase order details")
+def get_purchase_order(
+    po_id: str,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles(UserRole.BUSINESS)),
+):
+    return purchase_order_service.get_purchase_order_by_id(db, po_id)
+
 
 @router.post(
     "/",

@@ -5,6 +5,9 @@ from app.models.inventory import Inventory
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import Product, ProductStatus
 from app.schemas.order import OrderCreate
+from app.exceptions import PermissionDeniedException, ResourceNotFoundException
+from app.models.order import Order
+from app.models.user import User, UserRole
 
 
 def place_customer_order(db: Session, customer_id: str, data: OrderCreate) -> Order:
@@ -71,6 +74,45 @@ def update_order_status(db: Session, order_id: str, new_status: OrderStatus) -> 
                 inv.quantity += item.quantity
 
     order.status = new_status
+    db.commit()
+    db.refresh(order)
+    return order
+
+def get_order_by_id(db: Session, order_id: str, current_user: User) -> Order:
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise ResourceNotFoundException(resource="Order", identifier=order_id)
+
+    if current_user.role == UserRole.CUSTOMER and order.customer_id != current_user.id:
+        raise PermissionDeniedException("You do not have permission to view this order.")
+
+    return order
+
+def cancel_customer_order(db: Session, order_id: str, customer_id: str) -> Order:
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise ResourceNotFoundException(resource="Order", identifier=order_id)
+
+    if order.customer_id != customer_id:
+        raise PermissionDeniedException("You do not have permission to cancel this order.")
+
+    if order.status != OrderStatus.PENDING:
+        raise StockFlowException(
+            message=f"Only PENDING orders can be cancelled. Current status is {order.status.value}.",
+            status_code=400,
+        )
+
+    for item in order.items:
+        inventory_record = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == item.product_id)
+            .with_for_update()
+            .first()
+        )
+        if inventory_record:
+            inventory_record.quantity += item.quantity
+
+    order.status = OrderStatus.CANCELLED
     db.commit()
     db.refresh(order)
     return order

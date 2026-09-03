@@ -29,6 +29,13 @@ def get_my_orders(
 ):
     return order_service.get_customer_orders(db, current_user.id)
 
+@router.get("/{order_id}", response_model=OrderResponse, summary="[Customer] Get single order details and receipt")
+def get_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.CUSTOMER)),
+):
+    return order_service.get_order_by_id(db, order_id, current_user)
 
 @router.get("/all", response_model=list[OrderResponse], summary="[Business] View all customer orders")
 def get_all_orders(
@@ -46,3 +53,15 @@ def update_order_status(
     _user=Depends(require_roles(UserRole.BUSINESS))
 ):
     return order_service.update_order_status(db, order_id, data.status)
+
+@router.post(
+    "/{order_id}/cancel",
+    response_model=OrderResponse,
+    summary="[Customer] Cancel a pending order",
+)
+def cancel_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.CUSTOMER)),
+):
+    return order_service.cancel_customer_order(db, order_id, current_user.id)

@@ -67,3 +67,9 @@ def update_purchase_order_status(db: Session, po_id: str, new_status: PurchaseOr
     db.commit()
     db.refresh(po)
     return po
+
+def get_purchase_order_by_id(db: Session, po_id: str) -> PurchaseOrder:
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    if not po:
+        raise ResourceNotFoundException(resource="PurchaseOrder", identifier=po_id)
+    return po

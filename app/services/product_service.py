@@ -31,10 +31,9 @@ def create_product(db: Session, data: ProductCreate) -> Product:
     return product
 
 
-def list_products(db: Session, is_business: bool, category_id: str | None = None) -> list[dict]:
+def list_products(db: Session, category_id: str | None = None) -> list[dict]:
     query = db.query(Product)
-    if not is_business:
-        query = query.filter(Product.status == ProductStatus.ACTIVE)
+    
     if category_id:
         query = query.filter(Product.category_id == category_id)
 
@@ -84,3 +83,9 @@ def delete_product(db: Session, product_id: str):
         raise ResourceNotFoundException(resource="Product", identifier=product_id)
     db.delete(product)
     db.commit()
+
+def get_product_by_id(db: Session, product_id: str) -> Product:
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise ResourceNotFoundException(resource="Product", identifier=product_id)
+    return product

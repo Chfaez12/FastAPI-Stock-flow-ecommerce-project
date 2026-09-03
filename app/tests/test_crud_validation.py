@@ -1,3 +1,4 @@
+
 def test_category_update_and_delete_flow(client, business_headers):
     create_res = client.post(
         "/categories/",

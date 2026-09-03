@@ -1,14 +1,19 @@
 from collections.abc import Generator
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWKClient, PyJWTError
 from sqlalchemy.orm import Session
+
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.exceptions import AuthenticationFailedException, PermissionDeniedException
 from app.models.user import User, UserRole
 
 bearer_scheme = HTTPBearer()
+
+JWKS_URL = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+jwks_client = PyJWKClient(JWKS_URL)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -21,21 +26,23 @@ def get_db() -> Generator[Session, None, None]:
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     token = credentials.credentials
     try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+
         payload = jwt.decode(
             token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM],
-            options={"verify_aud": False}
+            signing_key.key,
+            algorithms=["ES256", "RS256", "HS256"],
+            options={"verify_aud": False},
         )
         user_id: str = payload.get("sub")
         if not user_id:
             raise AuthenticationFailedException("Token subject claim ('sub') missing.")
-    except JWTError:
-        raise AuthenticationFailedException("Invalid or expired authentication token.")
+    except PyJWTError as e:
+        raise AuthenticationFailedException(f"Invalid authentication token: {str(e)}")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -52,4 +59,5 @@ def require_roles(*allowed_roles: UserRole):
                 f"Action requires one of the following roles: {[r.value for r in allowed_roles]}."
             )
         return current_user
+
     return role_checker

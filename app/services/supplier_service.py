@@ -41,3 +41,10 @@ def delete_supplier(db: Session, supplier_id: str):
         raise ResourceNotFoundException(resource="Supplier", identifier=supplier_id)
     db.delete(supplier)
     db.commit()
+
+
+def get_supplier_by_id(db: Session, supplier_id: str) -> Supplier:
+    supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    if not supplier:
+        raise ResourceNotFoundException(resource="Supplier", identifier=supplier_id)
+    return supplier

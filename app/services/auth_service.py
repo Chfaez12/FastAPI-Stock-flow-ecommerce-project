@@ -116,3 +116,4 @@ def revoke_token():
         supabase.auth.sign_out()
     except Exception:
         pass
+

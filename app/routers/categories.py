@@ -13,6 +13,10 @@ def get_categories(db: Session = Depends(get_db)):
     return category_service.list_categories(db)
 
 
+@router.get("/{category_id}", response_model=CategoryResponse, summary="Get single category details")
+def get_category(category_id: str, db: Session = Depends(get_db)):
+    return category_service.get_category_by_id(db, category_id)
+
 @router.post(
     "/",
     response_model=CategoryResponse,

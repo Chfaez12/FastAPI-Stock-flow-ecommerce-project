@@ -42,3 +42,10 @@ def delete_category(db: Session, category_id: str):
         raise ResourceNotFoundException(resource="Category", identifier=category_id)
     db.delete(category)
     db.commit()
+
+
+def get_category_by_id(db: Session, category_id: str) -> Category:
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise ResourceNotFoundException(resource="Category", identifier=category_id)
+    return category

@@ -15,6 +15,14 @@ def get_suppliers(
 ):
     return supplier_service.list_suppliers(db)
 
+@router.get("/{supplier_id}", response_model=SupplierResponse, summary="[Business] Get single supplier profile")
+def get_supplier(
+    supplier_id: str,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles(UserRole.BUSINESS)),
+):
+    return supplier_service.get_supplier_by_id(db, supplier_id)
+
 
 @router.post(
     "/",

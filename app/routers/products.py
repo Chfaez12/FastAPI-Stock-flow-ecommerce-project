@@ -12,11 +12,16 @@ router = APIRouter(prefix="/products", tags=["Products"])
 def get_products(
     category_id: str | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
-    is_biz = current_user.role == UserRole.BUSINESS
-    return product_service.list_products(db, is_business=is_biz, category_id=category_id)
+    return product_service.list_products(db, category_id=category_id)
 
+@router.get("/{product_id}", response_model=ProductResponse, summary="Get single product details")
+def get_product(
+    product_id: str,
+    db: Session = Depends(get_db)
+):
+    return product_service.get_product_by_id(db, product_id)
+  
 
 @router.post(
     "/",
@@ -31,7 +36,7 @@ def create_product(
 ):
     return product_service.create_product(db, data)
 
-
+  
 @router.patch("/{product_id}", response_model=ProductResponse, summary="[Business] Update product")
 def update_product(
     product_id: str,
