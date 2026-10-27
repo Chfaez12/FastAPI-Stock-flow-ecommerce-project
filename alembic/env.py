@@ -9,8 +9,7 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 from app.core.config import settings
 from app.db.session import Base
 
-import app.models.user      # noqa: F401
-import app.models.entities  # noqa: F401
+import app.models  # noqa: F401  (registers every model on Base.metadata)
 
 config = context.config
 

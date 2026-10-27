@@ -1,9 +1,14 @@
+# Auth, Storage and the main database live in Supabase, so `docker compose up` needs a filled-in
+# .env. Compose also reads VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY from that file to build the
+# frontend (Vite bakes them into the bundle). The `db` service is a throwaway Postgres for running tests:
+#   docker compose up -d db
+#   TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/stockflow_test pytest
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: stockflow-backend
+    container_name: stockflow-api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -11,9 +16,34 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - FRONTEND_URL=http://localhost:5173
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_BASE_URL: http://localhost:8000
+    container_name: stockflow-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+  db:
+    image: postgres:16-alpine
+    container_name: stockflow-test-db
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stockflow_test
+    ports:
+      - "5433:5432"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

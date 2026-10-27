@@ -22,7 +22,8 @@ class Product(Base):
     price = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(ProductStatus, name="product_status_enum"), default=ProductStatus.ACTIVE, nullable=False)
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    image_url = Column(String(1024), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True, nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -32,5 +33,8 @@ class Product(Base):
 
     category = relationship("Category", back_populates="products")
     inventory = relationship("Inventory", back_populates="product", uselist=False, cascade="all, delete-orphan")
-    order_items = relationship("OrderItem", back_populates="product")
-    purchase_order_items = relationship("PurchaseOrderItem", back_populates="product")
+    # passive_deletes="all": never null out product_id on order history when a product is deleted;
+    # the RESTRICT foreign keys (and product_service.delete_product) refuse the delete instead.
+    order_items = relationship("OrderItem", back_populates="product", passive_deletes="all")
+    purchase_order_items = relationship("PurchaseOrderItem", back_populates="product", passive_deletes="all")
+    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan", passive_deletes=True)
