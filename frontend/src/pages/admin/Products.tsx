@@ -341,7 +341,7 @@ export const Products: React.FC = () => {
       <ConfirmDialog
         open={!!deleting}
         title={`Delete ${deleting?.name ?? 'product'}?`}
-        message="The product and its inventory record will be removed. Products that appear on existing orders may not be deletable — archive them instead."
+        message="The product and its inventory record will be removed. Products that appear on customer or purchase orders can't be deleted; set their status to Archived instead."
         confirmLabel="Delete product"
         danger
         onConfirm={remove}

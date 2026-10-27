@@ -5,10 +5,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from app.core import storage
 from app.core.pagination import PageParams, like_pattern, paginate
-from app.exceptions import ResourceAlreadyExistsException, ResourceNotFoundException
+from app.exceptions import ResourceAlreadyExistsException, ResourceNotFoundException, StockFlowException
 from app.models.category import Category
 from app.models.inventory import Inventory
+from app.models.order import OrderItem
 from app.models.product import Product, ProductStatus
+from app.models.purchase_order import PurchaseOrderItem
 from app.models.review import Review
 from app.schemas.product import ProductCreate, ProductUpdate
 
@@ -161,6 +163,22 @@ def delete_product(db: Session, product_id: str, access_token: str | None = None
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise ResourceNotFoundException(resource="Product", identifier=product_id)
+
+    # Orders and purchase orders keep a permanent record of what was sold or bought.
+    on_orders = db.query(OrderItem.id).filter(OrderItem.product_id == product_id).first() is not None
+    on_purchase_orders = (
+        db.query(PurchaseOrderItem.id).filter(PurchaseOrderItem.product_id == product_id).first() is not None
+    )
+    if on_orders or on_purchase_orders:
+        where = " and ".join(
+            label for label, used in (("customer orders", on_orders), ("purchase orders", on_purchase_orders)) if used
+        )
+        raise StockFlowException(
+            message=f"'{product.name}' appears on existing {where}, so it can't be deleted. Archive it instead.",
+            status_code=409,
+            details={"reason": "product_in_use"},
+        )
+
     image_url = product.image_url
     db.delete(product)
     db.commit()

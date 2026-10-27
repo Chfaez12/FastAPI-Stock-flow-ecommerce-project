@@ -33,6 +33,8 @@ class Product(Base):
 
     category = relationship("Category", back_populates="products")
     inventory = relationship("Inventory", back_populates="product", uselist=False, cascade="all, delete-orphan")
-    order_items = relationship("OrderItem", back_populates="product")
-    purchase_order_items = relationship("PurchaseOrderItem", back_populates="product")
+    # passive_deletes="all": never null out product_id on order history when a product is deleted;
+    # the RESTRICT foreign keys (and product_service.delete_product) refuse the delete instead.
+    order_items = relationship("OrderItem", back_populates="product", passive_deletes="all")
+    purchase_order_items = relationship("PurchaseOrderItem", back_populates="product", passive_deletes="all")
     reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan", passive_deletes=True)
