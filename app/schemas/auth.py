@@ -1,13 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from app.models.user import UserRole
 
 
 class UnifiedRegisterRequest(BaseModel):
-    name: str 
+    name: str
     email: EmailStr
     password: str
     phone: str | None = None
-    role: UserRole  
+    role: UserRole
 
 
 class LoginRequest(BaseModel):
@@ -21,6 +21,24 @@ class TokenRefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    # The access token Supabase puts in the reset link's URL fragment (#access_token=...).
+    access_token: str
+    new_password: str = Field(..., min_length=6)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class MessageResponse(BaseModel):
+    message: str
 
 
 class UserResponse(BaseModel):
@@ -37,9 +55,11 @@ class UserResponse(BaseModel):
 
 class AuthResponse(BaseModel):
     user: UserResponse
+    # Empty when email confirmation is on: the user must verify before a session is issued.
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    email_verification_required: bool = False
 
 
 class TokenRefreshResponse(BaseModel):

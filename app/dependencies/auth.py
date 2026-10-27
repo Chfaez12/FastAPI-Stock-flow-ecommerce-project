@@ -56,7 +56,7 @@ def require_roles(*allowed_roles: UserRole):
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in allowed_roles:
             raise PermissionDeniedException(
-                f"Action requires one of the following roles: {[r.value for r in allowed_roles]}."
+                f"Action requires the following role: {[r.value for r in allowed_roles]}."
             )
         return current_user
 

@@ -11,6 +11,7 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(..., min_length=1)
+    coupon_code: str | None = Field(default=None, max_length=50)
 
 
 class OrderItemResponse(BaseModel):
@@ -26,7 +27,10 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: str
     customer_id: str
+    subtotal_amount: Decimal
+    discount_amount: Decimal
     total_amount: Decimal
+    coupon_code: str | None = None
     status: OrderStatus
     created_at: datetime
     updated_at: datetime

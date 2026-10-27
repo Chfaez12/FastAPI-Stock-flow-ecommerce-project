@@ -61,3 +61,19 @@ def test_insufficient_stock_raises_custom_error(client, business_headers, custom
     assert data["success"] is False
     assert "Insufficient stock" in data["error"]["message"]
     assert data["error"]["details"]["available"] == 2
+
+def test_repeated_product_lines_cannot_oversell(client, business_headers, customer_headers):
+    product_id = client.post(
+        "/products/",
+        headers=business_headers,
+        json={"sku": "DUP-LINE-01", "name": "Split Line Item", "price": "5.00", "initial_quantity": 4},
+    ).json()["id"]
+
+    res = client.post(
+        "/orders/",
+        headers=customer_headers,
+        json={"items": [{"product_id": product_id, "quantity": 3}, {"product_id": product_id, "quantity": 3}]},
+    )
+    assert res.status_code == 400
+    stock = next(i for i in client.get("/inventory/", headers=business_headers).json() if i["product_id"] == product_id)
+    assert stock["quantity"] == 4

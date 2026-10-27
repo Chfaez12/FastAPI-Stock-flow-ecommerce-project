@@ -31,6 +31,9 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: datetime
     available_stock: int | None = None
+    image_url: str | None = None
+    average_rating: float | None = None
+    review_count: int = 0
 
     class Config:
         from_attributes = True

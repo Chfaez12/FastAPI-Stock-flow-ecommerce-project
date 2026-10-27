@@ -74,7 +74,7 @@ def test_customer_order_history_workflow(client, business_headers, customer_head
 
     history_res = client.get("/orders/me", headers=customer_headers)
     assert history_res.status_code == 200
-    orders_list = history_res.json()
+    orders_list = history_res.json()["items"]
     assert len(orders_list) >= 1
 
 
